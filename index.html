@@ -1915,7 +1915,7 @@ function processarConfirmacaoSaidaDireta(){
             _liberarBotao('btn-confirmar-saida-modal');
             if(res.ok){
                 const d=new Date(c.data);
-                c.itens.forEach(it=>databaseRegistros.push({pedido:'#SAI-DIRETA',data:c.data,item:it.item,cat:it.cat,qtd:it.qtd,setor:c.setor,solicitante:c.solicitante,tipo:'Saída',mes:String(d.getMonth()+1).padStart(2,'0'),ano:String(d.getFullYear())}));
+                c.itens.forEach(it=>databaseRegistros.push({pedido:'#SAI-DIRETA',data:c.data,item:it.item,cat:it.cat,qtdSoli:it.qtd,qtdDispo:it.qtd,setor:c.setor,solicitante:c.solicitante,tipo:'Saída',mes:String(d.getMonth()+1).padStart(2,'0'),ano:String(d.getFullYear())}));
                 document.getElementById('sai-solicitante').value='';
                 init100Rows('tabela-100-saidas','sai');
                 toast(`📤 ${res.total} saída(s) registradas!`);
