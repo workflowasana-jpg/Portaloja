@@ -200,13 +200,27 @@ async function acaoSalvarSaidaDireta(db, body) {
 async function acaoBuscarRegistros(db, body) {
   const { setor, mes, ano, tipo } = body;
 
-  let query = db.from('registros').select('*');
-  if (setor) query = query.ilike('setor', setor);
-  if (ano) query = query.gte('data', `${ano}-01-01`).lte('data', `${ano}-12-31`);
-  if (tipo && tipo !== 'todos') query = query.ilike('tipo', normalizar(tipo) === 'saida' ? 'Sa%da' : tipo);
+  // Busca paginada: o Supabase/PostgREST limita cada resposta a, no máximo,
+  // 1000 linhas por padrão. Sem paginar com .range(), combinações de filtro
+  // que retornem mais que isso ficam truncadas silenciosamente.
+  const PAGE_SIZE = 1000;
+  let rows = [];
+  let from = 0;
+  while (true) {
+    let query = db.from('registros').select('*');
+    if (setor) query = query.ilike('setor', setor);
+    if (ano) query = query.gte('data', `${ano}-01-01`).lte('data', `${ano}-12-31`);
+    if (tipo && tipo !== 'todos') query = query.ilike('tipo', normalizar(tipo) === 'saida' ? 'Sa%da' : tipo);
 
-  const { data: rows, error } = await query.order('id', { ascending: true });
-  if (error) throw error;
+    const { data: page, error } = await query
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+
+    rows = rows.concat(page || []);
+    if (!page || page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
 
   let resultado = (rows || []).map((r) => {
     const dt = r.data ? new Date(r.data) : null;

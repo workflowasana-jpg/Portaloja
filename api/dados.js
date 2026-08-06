@@ -6,6 +6,30 @@
 
 const { getDb } = require('../lib/db');
 
+// O Supabase/PostgREST limita cada requisição a, no máximo, 1000 linhas
+// (configurável no painel, mas o padrão é 1000) mesmo sem .limit() explícito.
+// Sem paginar com .range(), tabelas com mais de 1000 linhas ficam truncadas
+// silenciosamente (sem erro) na ordem retornada pelo banco — por isso
+// setores/itens "mais novos" (ids maiores) podiam não aparecer em nenhum
+// relatório. Esta função busca todas as páginas até esgotar os dados.
+async function fetchAllRows(db, table, { select = '*', orderBy = 'id', pageSize = 1000 } = {}) {
+  let allRows = [];
+  let from = 0;
+  while (true) {
+    const to = from + pageSize - 1;
+    const { data, error } = await db
+      .from(table)
+      .select(select)
+      .order(orderBy, { ascending: true })
+      .range(from, to);
+    if (error) throw error;
+    allRows = allRows.concat(data || []);
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+  return allRows;
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, erro: 'Método não permitido.' });
@@ -81,11 +105,7 @@ module.exports = async (req, res) => {
     };
 
     if (full) {
-      const { data: registros, error } = await db
-        .from('registros')
-        .select('*')
-        .order('id', { ascending: true });
-      if (error) throw error;
+      const registros = await fetchAllRows(db, 'registros');
 
       resposta.databaseRegistros = (registros || []).map((r) => {
         const dt = r.data ? new Date(r.data) : null;
